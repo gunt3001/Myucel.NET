@@ -9,13 +9,6 @@ namespace MyucelEngine
 {
     public static class Myucel
     {
-        public class FindSubmissionResult
-        {
-            public string Title { get; set; }
-            public Uri Link { get; set; }
-            public float Certainty { get; set; }
-        }
-
         public static int ScoreWeightEpisode = 3;
         public static int ScoreWeightDiscussKeyword = 1;
         public static int ScoreWeightAnimeTitle = 1;
@@ -188,12 +181,4 @@ namespace MyucelEngine
             return threadTitle.Contains("spoiler", StringComparison.OrdinalIgnoreCase);
         }
     }
-
-    public static class StringExtensions
-    {
-        public static bool Contains(this string source, string toCheck, StringComparison comp)
-        {
-            return source.IndexOf(toCheck, comp) >= 0;
-        }
-    } 
 }
