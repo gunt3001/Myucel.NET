@@ -7,12 +7,19 @@ using Newtonsoft.Json.Linq;
 
 namespace MyucelEngine
 {
-    public static class Myucel
+    public class Myucel
     {
-        public static int ScoreWeightEpisode = 3;
-        public static int ScoreWeightDiscussKeyword = 1;
-        public static int ScoreWeightAnimeTitle = 1;
-        public static int ScoreWeightSpoilerKeyword = 1;
+        public MyucelSettings Settings { get; set; }
+
+        public Myucel(MyucelSettings settings)
+        {
+            Settings = settings;
+        }
+
+        public Myucel()
+        {
+            Settings = new MyucelSettings();
+        }
 
         /// <summary>
         /// Search Reddit's /r/anime for an anime discussion thread.
@@ -26,7 +33,7 @@ namespace MyucelEngine
         /// Number of submissions returned depends on Reddit's search API default,
         /// which as of July 2015 is 25 submissions.
         /// </returns>
-        public static List<FindSubmissionResult> FindSubmission(string animeTitle, string episode)
+        public List<FindSubmissionResult> FindSubmission(string animeTitle, string episode)
         {
             if (string.IsNullOrWhiteSpace(animeTitle)) throw new ArgumentException("Anime title cannot be empty.");
             var queryString = QueryString(animeTitle, episode);
@@ -48,7 +55,7 @@ namespace MyucelEngine
         /// Number of submissions returned depends on Reddit's search API default,
         /// which as of July 2015 is 25 submissions.
         /// </returns>
-        public static List<FindSubmissionResult> FindSubmission(string animeTitle, int episodeNumber)
+        public List<FindSubmissionResult> FindSubmission(string animeTitle, int episodeNumber)
         {
             if (string.IsNullOrWhiteSpace(animeTitle)) throw new ArgumentException("Anime title cannot be empty.");
             var queryString = QueryString(animeTitle, episodeNumber);
@@ -58,9 +65,21 @@ namespace MyucelEngine
             return results;
         }
 
+        private string QueryReddit(string queryString)
+        {
+            var client = new HttpClient { BaseAddress = Settings.SearchEndpoint };
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("u-gunt3001-myucel-library/1.0");
+
+            var response = client.GetAsync(QueryUrlParameters(queryString)).Result;
+            return response.IsSuccessStatusCode ? response.Content.ReadAsStringAsync().Result : null;
+        }
+
+        // Helpers
+
         private static string QueryString(string animeTitle, string episode)
         {
-            return string.Format("{0} {1} Discussion", animeTitle, episode);
+            return $"{animeTitle} {episode} Discussion";
         }
 
         private static string QueryString(string animeTitle, int episodeNumber)
@@ -68,27 +87,9 @@ namespace MyucelEngine
             return QueryString(animeTitle, episodeNumber.ToString());
         }
 
-        private static Uri QueryEndpoint
-        {
-            get
-            {
-                return new Uri("http://www.reddit.com/r/anime/search.json");
-            }
-        }
-
         private static string QueryUrlParameters(string queryString)
         {
-            return string.Format("?q=\"{0}\"&restrict_sr=true", queryString);
-        }
-
-        private static string QueryReddit(string queryString)
-        {
-            var client = new HttpClient { BaseAddress = QueryEndpoint };
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("u-gunt3001-myucel-library/1.0");
-
-            var response = client.GetAsync(QueryUrlParameters(queryString)).Result;
-            return response.IsSuccessStatusCode ? response.Content.ReadAsStringAsync().Result : null;
+            return $"?q=\"{queryString}\"&restrict_sr=true";
         }
 
         private static JObject ReadJsonResponse(string response)
@@ -106,7 +107,7 @@ namespace MyucelEngine
             });
         }
 
-        private static List<FindSubmissionResult> CalcuateScoreAndSort(IEnumerable<FindSubmissionResult> results, string animeTitle, string episode)
+        private List<FindSubmissionResult> CalcuateScoreAndSort(IEnumerable<FindSubmissionResult> results, string animeTitle, string episode)
         {
             var sorted = results.ToList();
             foreach (var findSubmissionResult in sorted)
@@ -116,7 +117,7 @@ namespace MyucelEngine
             return sorted.OrderByDescending(x => x.Certainty).ToList();
         }
 
-        private static List<FindSubmissionResult> CalcuateScoreAndSort(IEnumerable<FindSubmissionResult> results, string animeTitle, int episodeNumber)
+        private List<FindSubmissionResult> CalcuateScoreAndSort(IEnumerable<FindSubmissionResult> results, string animeTitle, int episodeNumber)
         {
             var sorted = results.ToList();
             foreach (var findSubmissionResult in sorted)
@@ -126,30 +127,38 @@ namespace MyucelEngine
             return sorted.OrderByDescending(x => x.Certainty).ToList();
         }
 
-        private static float CalculateScore(string threadTitle, string animeTitle, string episode)
+        private float CalculateScore(string threadTitle, string animeTitle, string episode)
         {
             var score = 0;
 
-            score += FindTitle(threadTitle, animeTitle) ? ScoreWeightAnimeTitle : 0;
-            score += FindEpisode(threadTitle, episode) ? ScoreWeightEpisode : 0;
-            score += FindDiscussionKeyword(threadTitle) ? ScoreWeightDiscussKeyword : 0;
-            score += FindSpoilerKeyword(threadTitle) ? ScoreWeightSpoilerKeyword : 0;
+            score += FindTitle(threadTitle, animeTitle) ? Settings.ScoreWeightAnimeTitle : 0;
+            score += FindEpisode(threadTitle, episode) ? Settings.ScoreWeightEpisode : 0;
+            score += FindDiscussionKeyword(threadTitle) ? Settings.ScoreWeightDiscussKeyword : 0;
+            score += FindSpoilerKeyword(threadTitle) ? Settings.ScoreWeightSpoilerKeyword : 0;
 
-            var certainty = (float)score / (ScoreWeightEpisode + ScoreWeightDiscussKeyword + ScoreWeightAnimeTitle + ScoreWeightSpoilerKeyword);
+            var certainty = (float)score / 
+                (Settings.ScoreWeightEpisode + 
+                Settings.ScoreWeightDiscussKeyword +
+                Settings.ScoreWeightAnimeTitle +
+                Settings.ScoreWeightSpoilerKeyword);
 
             return certainty;
         }
 
-        private static float CalculateScore(string threadTitle, string animeTitle, int episodeNumber)
+        private float CalculateScore(string threadTitle, string animeTitle, int episodeNumber)
         {
             var score = 0;
 
-            score += FindTitle(threadTitle, animeTitle) ? ScoreWeightAnimeTitle : 0;
-            score += FindEpisode(threadTitle, episodeNumber) ? ScoreWeightEpisode : 0;
-            score += FindDiscussionKeyword(threadTitle) ? ScoreWeightDiscussKeyword : 0;
-            score += FindSpoilerKeyword(threadTitle) ? ScoreWeightSpoilerKeyword : 0;
+            score += FindTitle(threadTitle, animeTitle) ? Settings.ScoreWeightAnimeTitle : 0;
+            score += FindEpisode(threadTitle, episodeNumber) ? Settings.ScoreWeightEpisode : 0;
+            score += FindDiscussionKeyword(threadTitle) ? Settings.ScoreWeightDiscussKeyword : 0;
+            score += FindSpoilerKeyword(threadTitle) ? Settings.ScoreWeightSpoilerKeyword : 0;
 
-            var certainty = (float)score / (ScoreWeightEpisode + ScoreWeightDiscussKeyword + ScoreWeightAnimeTitle + ScoreWeightSpoilerKeyword);
+            var certainty = (float)score / 
+                (Settings.ScoreWeightEpisode +
+                Settings.ScoreWeightDiscussKeyword +
+                Settings.ScoreWeightAnimeTitle +
+                Settings.ScoreWeightSpoilerKeyword);
 
             return certainty;
         }
