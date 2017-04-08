@@ -4,7 +4,7 @@ Myucel.NET is a small library that search Reddit's /r/anime discussion threads u
 
 It's something I made for myself to easily find anime discussion threads. I'm sure there are beter ways to do this. Currently even a slight typo can throw off Reddit search algorithm.
 
-Myucel.NET is a Portable Class Library targeting .NET 4.5, Xamarin.Android, Xamarin.iOS and Silverlight 5.
+Myucel.NET is a .NET Standard Library targeting .NET Standard 1.1 (Refer to compatibility table [here](https://blogs.msdn.microsoft.com/dotnet/2016/09/26/introducing-net-standard/))
 
 ### Usage
 
